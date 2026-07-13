@@ -5,6 +5,7 @@ import android.net.wifi.WifiManager
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.NetworkInterface
 import java.net.SocketException
 import java.nio.charset.Charset
 
@@ -93,11 +94,41 @@ class UdpHealthDataProvider(
     }
 
     private fun requestTargets(): List<InetAddress> {
-        return listOf(
+        val targets = mutableListOf(
             "255.255.255.255",
             "192.168.0.255",
             "192.168.1.255"
-        ).map { InetAddress.getByName(it) }
+        ).mapTo(mutableListOf()) { InetAddress.getByName(it) }
+
+        targets += localIpv4Addresses()
+            .flatMap { address -> subnetTargets(address) }
+
+        return targets.distinctBy { it.hostAddress }
+    }
+
+    private fun localIpv4Addresses(): List<String> {
+        return runCatching {
+            NetworkInterface.getNetworkInterfaces().toList()
+                .filter { it.isUp && !it.isLoopback }
+                .flatMap { networkInterface -> networkInterface.inetAddresses.toList() }
+                .mapNotNull { address ->
+                    address.hostAddress
+                        ?.takeIf { it.count { char -> char == '.' } == 3 }
+                        ?.takeUnless { it.startsWith("127.") }
+                }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun subnetTargets(address: String): List<InetAddress> {
+        val parts = address.split('.')
+        if (parts.size != 4) return emptyList()
+        val prefix = parts.take(3).joinToString(".")
+        val self = parts[3].toIntOrNull() ?: return emptyList()
+        return (1..254)
+            .asSequence()
+            .filter { it != self }
+            .map { InetAddress.getByName("$prefix.$it") }
+            .toList()
     }
 
     companion object {

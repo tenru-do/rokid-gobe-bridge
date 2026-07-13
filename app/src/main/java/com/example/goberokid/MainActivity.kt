@@ -2,25 +2,44 @@ package com.example.goberokid
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.goberokid.environment.OpenMeteoWeatherProvider
+import com.example.goberokid.environment.WeatherStatus
 import com.example.goberokid.healbe.BroadcastHealthDataProvider
 import com.example.goberokid.healbe.CombinedHealthDataProvider
 import com.example.goberokid.healbe.HealthDataProvider
 import com.example.goberokid.healbe.HealthSnapshot
 import com.example.goberokid.healbe.UdpHealthDataProvider
 
-class MainActivity : Activity(), HealthDataProvider.Callback {
+class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherProvider.Callback {
     private lateinit var tvStatus: TextView
     private lateinit var rootView: LinearLayout
     private lateinit var healthDataProvider: HealthDataProvider
+    private lateinit var weatherProvider: OpenMeteoWeatherProvider
+    private val handler = Handler(Looper.getMainLooper())
+    private var latestSnapshot: HealthSnapshot? = null
+    private var connectingMessage: String = "Connecting to GoBe U..."
+    private var latestError: String? = null
+    private var latestWeather = WeatherStatus()
+    private val ticker = object : Runnable {
+        override fun run() {
+            render()
+            handler.postDelayed(this, CLOCK_REFRESH_MS)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,43 +58,46 @@ class MainActivity : Activity(), HealthDataProvider.Callback {
             UdpHealthDataProvider(this),
             BroadcastHealthDataProvider(this)
         )
+        weatherProvider = OpenMeteoWeatherProvider(this)
         healthDataProvider.start(this)
+        weatherProvider.start(this)
+        handler.post(ticker)
     }
 
     override fun onDestroy() {
+        handler.removeCallbacks(ticker)
+        weatherProvider.stop()
         healthDataProvider.stop()
         super.onDestroy()
     }
 
     override fun onConnecting(message: String) {
         runOnUiThread {
-            tvStatus.text = buildString {
-                appendLine("=======================")
-                appendLine("   [ HEALBE STATUS ]")
-                appendLine("=======================")
-                appendLine(message)
-            }
+            connectingMessage = message
+            latestError = null
+            render()
         }
     }
 
     override fun onSnapshot(snapshot: HealthSnapshot) {
         runOnUiThread {
-            tvStatus.text = formatSnapshot(snapshot)
+            latestSnapshot = snapshot
+            latestError = null
+            render()
         }
     }
 
     override fun onError(message: String, throwable: Throwable?) {
         runOnUiThread {
-            tvStatus.text = buildString {
-                appendLine("=======================")
-                appendLine("   [ HEALBE STATUS ]")
-                appendLine("=======================")
-                appendLine("ERROR")
-                appendLine(message)
-                throwable?.localizedMessage?.let { appendLine(it) }
-                appendLine("=======================")
-                append("[ tap to close ]")
-            }
+            latestError = listOfNotNull("ERROR", message, throwable?.localizedMessage).joinToString("\n")
+            render()
+        }
+    }
+
+    override fun onWeather(status: WeatherStatus) {
+        runOnUiThread {
+            latestWeather = status
+            render()
         }
     }
 
@@ -115,19 +137,53 @@ class MainActivity : Activity(), HealthDataProvider.Callback {
         }
     }
 
+    private fun render() {
+        tvStatus.text = buildScreen()
+    }
+
+    private fun buildScreen(): String = buildString {
+        appendLine("Rokid ${glassesBatteryText()}   ${dateText()}")
+        appendLine("${timeText(System.currentTimeMillis())}   ${latestWeather.temperatureText} ${latestWeather.label}")
+        appendLine("====================")
+        appendLine("[ HEALBE STATUS ]")
+        appendLine("====================")
+        latestError?.let {
+            appendLine(it)
+            appendLine("====================")
+            append("[ tap to close ]")
+            return@buildString
+        }
+
+        val snapshot = latestSnapshot
+        if (snapshot == null) {
+            appendLine(connectingMessage)
+        } else {
+            append(formatSnapshot(snapshot))
+        }
+    }
+
     private fun formatSnapshot(snapshot: HealthSnapshot): String = buildString {
-        appendLine("=======================")
-        appendLine("   [ HEALBE STATUS ]")
-        appendLine("=======================")
-        appendLine("Water  ${waterText(snapshot)}")
-        appendLine("Energy ${formatSigned(snapshot.energyBalanceKcal)} kcal ${energyHint(snapshot.energyBalanceKcal)}")
-        appendLine("Steps  ${valueText(snapshot.stepsToday)}")
-        appendLine("Pulse  ${valueText(snapshot.pulseBpm)} bpm")
-        appendLine("Stress ${snapshot.stressLevel}")
-        appendLine("Battery ${percentText(snapshot.batteryPercent)}")
-        appendLine("Updated ${timeText(snapshot.updatedAtMillis)}  ${snapshot.source}")
-        appendLine("=======================")
+        appendLine("Water   ${waterText(snapshot)}")
+        appendLine("Energy  ${formatSigned(snapshot.energyBalanceKcal)} kcal ${energyHint(snapshot.energyBalanceKcal)}")
+        appendLine("Steps   ${valueText(snapshot.stepsToday)}")
+        appendLine("Pulse   ${valueText(snapshot.pulseBpm)} bpm")
+        appendLine("Stress  ${snapshot.stressLevel}")
+        appendLine("GoBe    ${percentText(snapshot.batteryPercent)}")
+        appendLine("Updated ${timeText(snapshot.updatedAtMillis)} ${snapshot.source}")
+        appendLine("====================")
         append("[ tap to close ]")
+    }
+
+    private fun glassesBatteryText(): String {
+        val intent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val percent = if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+        val suffix = if (charging) "+" else ""
+        return "Batt ${percentText(percent)}$suffix"
     }
 
     private fun bar(percent: Int): String {
@@ -161,7 +217,12 @@ class MainActivity : Activity(), HealthDataProvider.Callback {
         return SimpleDateFormat("HH:mm:ss", Locale.US).format(Date(value))
     }
 
+    private fun dateText(): String {
+        return SimpleDateFormat("yyyy/MM/dd E", Locale.US).format(Date())
+    }
+
     companion object {
         private const val BLE_REQUEST = 1001
+        private const val CLOCK_REFRESH_MS = 1000L
     }
 }

@@ -6,6 +6,7 @@ Small Android/Kotlin scaffold for a Rokid smart-glasses display that shows HEALB
 
 - Fullscreen portrait activity for Rokid glasses. This matches the tested device's natural 480x640 orientation and avoids the 90-degree rotated view.
 - Minimal black background and green monospace text UI with compact status bars.
+- Rokid display header with glasses battery, current date/time, weather, and temperature.
 - Custom launcher icon matching the black/green glasses monitor theme.
 - Runtime BLE permission handling for Android 12+ and older Android versions.
 - `HealthDataProvider` interface so the HEALBE SDK is isolated behind one adapter.
@@ -22,6 +23,17 @@ Small Android/Kotlin scaffold for a Rokid smart-glasses display that shows HEALB
 - `OfficialHealbeSdkBridge`, a reflection-based official SDK data path that activates automatically when the SDK is bundled.
 - No AndroidX dependency in the app code; it uses platform `Activity` and permission APIs.
 - Gradle wrapper is included. Create `local.properties` locally for your Android SDK path; it is intentionally ignored by git.
+
+## Rokid Display
+
+The glasses app renders a compact always-on status screen:
+
+- Rokid battery percentage, including a charging marker.
+- Current date and time, refreshed every second.
+- Current weather and temperature from Open-Meteo.
+- HEALBE/GoBe metrics from the phone bridge.
+
+Weather uses the device's last known location when Android has granted location access. If no location is available, it falls back to Tokyo coordinates. No weather API key or account login is required.
 
 ## Project Layout
 

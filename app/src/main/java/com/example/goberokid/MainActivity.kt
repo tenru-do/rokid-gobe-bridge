@@ -53,6 +53,7 @@ class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherPr
         tvStatus = findViewById(R.id.tvStatus)
         rootView = findViewById(R.id.rootView)
         rootView.setOnClickListener { finish() }
+        render()
 
         healthDataProvider = CombinedHealthDataProvider(
             UdpHealthDataProvider(this),

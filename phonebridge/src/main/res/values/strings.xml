@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">GoBe Rokid Bridge</string>
+    <string name="notification_listener_label">GoBe Rokid Bridge</string>
+    <string name="accessibility_service_label">GoBe Rokid Screen Reader</string>
+</resources>

@@ -5,17 +5,17 @@ import android.content.Context
 class PayloadStore(context: Context) {
     private val preferences = context.getSharedPreferences("last_payload", Context.MODE_PRIVATE)
 
-    fun save(payload: HealthPayload) {
+    fun save(payload: HealthPayload, keepMissingValues: Boolean = true) {
         val previous = load()
         val now = System.currentTimeMillis()
         preferences.edit()
-            .putInt(KEY_WATER, payload.water ?: previous.water ?: UNKNOWN)
-            .putString(KEY_WATER_STATUS, payload.waterStatus ?: previous.waterStatus.orEmpty())
-            .putInt(KEY_ENERGY, payload.energy ?: previous.energy ?: UNKNOWN)
-            .putInt(KEY_STEPS, payload.steps ?: previous.steps ?: UNKNOWN)
-            .putInt(KEY_PULSE, payload.pulse ?: previous.pulse ?: UNKNOWN)
-            .putString(KEY_STRESS, payload.stress ?: previous.stress.orEmpty())
-            .putInt(KEY_BATTERY, payload.battery ?: previous.battery ?: UNKNOWN)
+            .putInt(KEY_WATER, payload.water ?: previous.water.takeIf { keepMissingValues } ?: UNKNOWN)
+            .putString(KEY_WATER_STATUS, payload.waterStatus ?: previous.waterStatus.takeIf { keepMissingValues }.orEmpty())
+            .putInt(KEY_ENERGY, payload.energy ?: previous.energy.takeIf { keepMissingValues } ?: UNKNOWN)
+            .putInt(KEY_STEPS, payload.steps ?: previous.steps.takeIf { keepMissingValues } ?: UNKNOWN)
+            .putInt(KEY_PULSE, payload.pulse ?: previous.pulse.takeIf { keepMissingValues } ?: UNKNOWN)
+            .putString(KEY_STRESS, payload.stress ?: previous.stress.takeIf { keepMissingValues }.orEmpty())
+            .putInt(KEY_BATTERY, payload.battery ?: previous.battery.takeIf { keepMissingValues } ?: UNKNOWN)
             .putString(KEY_SOURCE, payload.source)
             .putLong(KEY_UPDATED, now)
             .apply()

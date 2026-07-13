@@ -24,6 +24,7 @@ class HealbeAccessibilityService : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        currentService = this
         BridgeRequestServer.start(this)
         handler.removeCallbacks(pollTask)
         handler.post(pollTask)
@@ -32,6 +33,7 @@ class HealbeAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        if (currentService === this) currentService = null
         handler.removeCallbacks(pollTask)
         super.onDestroy()
     }
@@ -47,8 +49,8 @@ class HealbeAccessibilityService : AccessibilityService() {
         val now = System.currentTimeMillis()
         if (encoded == lastPayloadText && now - lastSentAt < 4_000) return
 
-        PayloadStore(this).save(payload)
-        UdpSender.send(this, payload)
+        PayloadStore(this).save(payload, keepMissingValues = false)
+        UdpSender.send(this, payload, keepMissingValues = false)
         lastPayloadText = encoded
         lastSentAt = now
     }
@@ -69,11 +71,17 @@ class HealbeAccessibilityService : AccessibilityService() {
         return contains("\u30a8\u30cd\u30eb\u30ae\u30fc\u30d0\u30e9\u30f3\u30b9") &&
             contains("\u63a5\u7d9a\u6e08\u307f") &&
             contains("GBU_") &&
-            contains("\u6b69") &&
-            contains("kcal")
+            contains("kcal") &&
+            (contains("\u8108\u62cd") || contains("\u6c34\u5206"))
     }
 
     companion object {
         private const val HEALBE_PACKAGE = "com.healbe.healbegobe"
+        @Volatile
+        private var currentService: HealbeAccessibilityService? = null
+
+        fun requestActiveRead() {
+            currentService?.readActiveHealbeWindow()
+        }
     }
 }

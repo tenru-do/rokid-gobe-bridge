@@ -32,6 +32,7 @@ object BridgeRequestServer {
                         val replyPort = parseReplyPort(body)
                         val store = PayloadStore(appContext)
                         if (store.isStale()) {
+                            HealbeAccessibilityService.requestActiveRead()
                             DirectGoBeBleBridge.requestFreshPoll(appContext)
                             waitForFreshPayload(store)
                         }

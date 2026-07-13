@@ -7,10 +7,10 @@ import java.net.InetAddress
 import java.nio.charset.Charset
 
 object UdpSender {
-    fun send(context: Context, payload: HealthPayload) {
+    fun send(context: Context, payload: HealthPayload, keepMissingValues: Boolean = true) {
         if (!payload.hasAnyMetric()) return
         val store = PayloadStore(context)
-        store.save(payload)
+        store.save(payload, keepMissingValues)
         val savedPayload = store.load()
         val settings = BridgeSettings(context)
         if (settings.glassesHost.isBlank()) return

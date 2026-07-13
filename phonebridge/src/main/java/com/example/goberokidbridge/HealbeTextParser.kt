@@ -118,6 +118,8 @@ object HealbeTextParser {
         val lower = text.lowercase()
         return when {
             text.contains("\u30b9\u30c8\u30ec\u30b9\u3084\u3084\u9ad8\u3081") -> "\u3084\u3084\u9ad8\u3081"
+            text.contains("\u73fe\u5728\u306e\u30ec\u30d9\u30eb") && text.contains("\u8efd\u3044") -> "\u8efd\u3044"
+            text.contains("\u73fe\u5728\u306e\u30ec\u30d9\u30eb") && text.contains("\u9ad8\u3044") -> "\u9ad8\u3044"
             listOf("low", "\u4f4e").any { lower.contains(it) } && hasStressHint(lower) -> "Low"
             listOf("medium", "moderate", "\u4e2d").any { lower.contains(it) } && hasStressHint(lower) -> "Medium"
             listOf("high", "\u9ad8").any { lower.contains(it) } && hasStressHint(lower) -> "High"

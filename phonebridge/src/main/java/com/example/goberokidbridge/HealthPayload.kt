@@ -8,7 +8,8 @@ data class HealthPayload(
     val pulse: Int? = null,
     val stress: String? = null,
     val battery: Int? = null,
-    val source: String = "PHONE"
+    val source: String = "PHONE",
+    val updatedAtMillis: Long = 0L
 ) {
     fun encode(): String {
         val parts = mutableListOf<String>()
@@ -20,6 +21,7 @@ data class HealthPayload(
         stress?.takeIf { it.isNotBlank() }?.let { parts += "stress=${it.sanitize()}" }
         battery?.let { parts += "battery=$it" }
         parts += "source=${source.sanitize()}"
+        if (updatedAtMillis > 0L) parts += "updated=$updatedAtMillis"
         return parts.joinToString(";")
     }
 

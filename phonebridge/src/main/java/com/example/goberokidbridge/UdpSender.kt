@@ -9,10 +9,12 @@ import java.nio.charset.Charset
 object UdpSender {
     fun send(context: Context, payload: HealthPayload) {
         if (!payload.hasAnyMetric()) return
-        PayloadStore(context).save(payload)
+        val store = PayloadStore(context)
+        store.save(payload)
+        val savedPayload = store.load()
         val settings = BridgeSettings(context)
         if (settings.glassesHost.isBlank()) return
-        val body = payload.encode().toByteArray(Charset.forName("UTF-8"))
+        val body = savedPayload.encode().toByteArray(Charset.forName("UTF-8"))
         Thread {
             runCatching {
                 DatagramSocket().use { socket ->

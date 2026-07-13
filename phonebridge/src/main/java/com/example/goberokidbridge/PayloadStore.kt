@@ -7,6 +7,7 @@ class PayloadStore(context: Context) {
 
     fun save(payload: HealthPayload) {
         val previous = load()
+        val now = System.currentTimeMillis()
         preferences.edit()
             .putInt(KEY_WATER, payload.water ?: previous.water ?: UNKNOWN)
             .putString(KEY_WATER_STATUS, payload.waterStatus ?: previous.waterStatus.orEmpty())
@@ -16,7 +17,7 @@ class PayloadStore(context: Context) {
             .putString(KEY_STRESS, payload.stress ?: previous.stress.orEmpty())
             .putInt(KEY_BATTERY, payload.battery ?: previous.battery ?: UNKNOWN)
             .putString(KEY_SOURCE, payload.source)
-            .putLong(KEY_UPDATED, System.currentTimeMillis())
+            .putLong(KEY_UPDATED, now)
             .apply()
     }
 
@@ -29,11 +30,17 @@ class PayloadStore(context: Context) {
             pulse = preferences.optionalInt(KEY_PULSE),
             stress = preferences.getString(KEY_STRESS, null)?.takeIf { it.isNotBlank() },
             battery = preferences.optionalInt(KEY_BATTERY),
-            source = preferences.getString(KEY_SOURCE, "PHONE") ?: "PHONE"
+            source = preferences.getString(KEY_SOURCE, "PHONE") ?: "PHONE",
+            updatedAtMillis = updatedAt()
         )
     }
 
     fun updatedAt(): Long = preferences.getLong(KEY_UPDATED, 0L)
+
+    fun isStale(maxAgeMillis: Long = MAX_CACHE_AGE_MS): Boolean {
+        val updatedAt = updatedAt()
+        return updatedAt <= 0L || System.currentTimeMillis() - updatedAt > maxAgeMillis
+    }
 
     private fun android.content.SharedPreferences.optionalInt(key: String): Int? {
         val value = getInt(key, UNKNOWN)
@@ -51,5 +58,6 @@ class PayloadStore(context: Context) {
         private const val KEY_BATTERY = "battery"
         private const val KEY_SOURCE = "source"
         private const val KEY_UPDATED = "updated"
+        private const val MAX_CACHE_AGE_MS = 2 * 60 * 1000L
     }
 }

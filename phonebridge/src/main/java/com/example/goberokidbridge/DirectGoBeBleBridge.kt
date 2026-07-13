@@ -57,6 +57,14 @@ object DirectGoBeBleBridge {
         start(context)
     }
 
+    fun requestFreshPoll(context: Context) {
+        start(context)
+        gatt?.let { connectedGatt ->
+            mainHandler.post { poll(connectedGatt) }
+        }
+        BleBridgeStatus.update(context.applicationContext, "Fresh GoBe data requested by Rokid.")
+    }
+
     fun stop() {
         running.set(false)
         appContext?.let { context ->
@@ -303,7 +311,8 @@ object DirectGoBeBleBridge {
             pulse = next.pulse ?: pulse,
             stress = next.stress ?: stress,
             battery = next.battery ?: battery,
-            source = SOURCE
+            source = SOURCE,
+            updatedAtMillis = System.currentTimeMillis()
         )
     }
 

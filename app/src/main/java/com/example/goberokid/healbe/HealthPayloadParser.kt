@@ -21,7 +21,7 @@ object HealthPayloadParser {
             pulseBpm = values["pulse"]?.toIntOrNull() ?: 0,
             stressLevel = values["stress"]?.ifBlank { null } ?: "Unknown",
             batteryPercent = values["battery"]?.toIntOrNull() ?: -1,
-            updatedAtMillis = System.currentTimeMillis(),
+            updatedAtMillis = values["updated"]?.toLongOrNull() ?: System.currentTimeMillis(),
             source = values["source"]?.ifBlank { null } ?: defaultSource
         )
     }

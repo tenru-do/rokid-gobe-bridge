@@ -30,9 +30,19 @@ object BridgeRequestServer {
                         val body = String(packet.data, packet.offset, packet.length, Charset.forName("UTF-8"))
                         if (!body.contains("request=latest")) continue
                         val replyPort = parseReplyPort(body)
-                        val payload = PayloadStore(appContext).load()
+                        val store = PayloadStore(appContext)
+                        if (store.isStale()) {
+                            DirectGoBeBleBridge.requestFreshPoll(appContext)
+                            waitForFreshPayload(store)
+                        }
+                        val payload = store.load()
                         if (payload.hasAnyMetric()) {
-                            val bytes = payload.encode().toByteArray(Charset.forName("UTF-8"))
+                            val responsePayload = if (store.isStale()) {
+                                payload.copy(source = "STALE_${payload.source}")
+                            } else {
+                                payload
+                            }
+                            val bytes = responsePayload.encode().toByteArray(Charset.forName("UTF-8"))
                             val response = DatagramPacket(bytes, bytes.size, packet.address, replyPort)
                             datagramSocket.send(response)
                         }
@@ -63,4 +73,13 @@ object BridgeRequestServer {
             ?.toIntOrNull()
             ?: DEFAULT_REPLY_PORT
     }
+
+    private fun waitForFreshPayload(store: PayloadStore) {
+        val deadline = System.currentTimeMillis() + FRESH_WAIT_MS
+        while (System.currentTimeMillis() < deadline && store.isStale()) {
+            Thread.sleep(200)
+        }
+    }
+
+    private const val FRESH_WAIT_MS = 2_500L
 }

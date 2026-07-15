@@ -12,7 +12,6 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.View
-import android.widget.LinearLayout
 import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -28,7 +27,7 @@ import com.example.goberokid.healbe.UdpHealthDataProvider
 class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherProvider.Callback {
     private lateinit var tvHeader: TextView
     private lateinit var tvStatus: TextView
-    private lateinit var rootView: LinearLayout
+    private lateinit var rootView: View
     private lateinit var healthDataProvider: HealthDataProvider
     private lateinit var weatherProvider: OpenMeteoWeatherProvider
     private val handler = Handler(Looper.getMainLooper())

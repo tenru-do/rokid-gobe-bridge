@@ -2,7 +2,10 @@ package com.example.goberokidbridge
 
 object HealbeTextParser {
     fun parse(text: String): HealthPayload? {
-        val lines = text
+        val normalizedText = text
+            .replace(Regex("""(?<=\d)[,\u3001](?=\d{3}(\D|$))"""), "")
+
+        val lines = normalizedText
             .replace(',', ' ')
             .replace('\u3001', ' ')
             .lines()

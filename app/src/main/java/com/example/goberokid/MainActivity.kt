@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -25,6 +26,7 @@ import com.example.goberokid.healbe.HealthSnapshot
 import com.example.goberokid.healbe.UdpHealthDataProvider
 
 class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherProvider.Callback {
+    private lateinit var tvHeader: TextView
     private lateinit var tvStatus: TextView
     private lateinit var rootView: LinearLayout
     private lateinit var healthDataProvider: HealthDataProvider
@@ -50,9 +52,14 @@ class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherPr
             )
         setContentView(R.layout.activity_main)
 
+        tvHeader = findViewById(R.id.tvHeader)
         tvStatus = findViewById(R.id.tvStatus)
         rootView = findViewById(R.id.rootView)
-        rootView.setOnClickListener { finish() }
+        rootView.setOnClickListener { openWifiSettings() }
+        rootView.setOnLongClickListener {
+            finish()
+            true
+        }
         render()
 
         healthDataProvider = CombinedHealthDataProvider(
@@ -139,19 +146,18 @@ class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherPr
     }
 
     private fun render() {
+        tvHeader.text = "${dateText()}  ${timeText(System.currentTimeMillis())}"
         tvStatus.text = buildScreen()
     }
 
     private fun buildScreen(): String = buildString {
-        appendLine("Rokid ${glassesBatteryText()}   ${dateText()}")
-        appendLine("${timeText(System.currentTimeMillis())}   ${latestWeather.temperatureText} ${latestWeather.label}")
-        appendLine("====================")
-        appendLine("[ HEALBE STATUS ]")
-        appendLine("====================")
+        appendLine("Rokid ${glassesBatteryText()}  ${latestWeather.temperatureText} ${latestWeather.label}")
+        appendLine("------------------")
+        appendLine("HEALBE")
         latestError?.let {
             appendLine(it)
-            appendLine("====================")
-            append("[ tap to close ]")
+            appendLine("------------------")
+            append("[tap WiFi / hold close]")
             return@buildString
         }
 
@@ -164,15 +170,23 @@ class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherPr
     }
 
     private fun formatSnapshot(snapshot: HealthSnapshot): String = buildString {
-        appendLine("Water   ${waterText(snapshot)}")
-        appendLine("Energy  ${formatSigned(snapshot.energyBalanceKcal)} kcal ${energyHint(snapshot.energyBalanceKcal)}")
-        appendLine("Steps   ${valueText(snapshot.stepsToday)}")
-        appendLine("Pulse   ${valueText(snapshot.pulseBpm)} bpm")
-        appendLine("Stress  ${snapshot.stressLevel}")
-        appendLine("GoBe    ${percentText(snapshot.batteryPercent)}")
-        appendLine("Updated ${timeText(snapshot.updatedAtMillis)} ${snapshot.source}")
-        appendLine("====================")
-        append("[ tap to close ]")
+        appendLine("Water ${waterText(snapshot)}")
+        appendLine("Energy ${formatSigned(snapshot.energyBalanceKcal)}kcal ${energyHint(snapshot.energyBalanceKcal)}")
+        appendLine("Steps ${compactValueText(snapshot.stepsToday)}")
+        appendLine("Pulse ${valueText(snapshot.pulseBpm)}bpm")
+        appendLine("Stress ${snapshot.stressLevel}")
+        appendLine("GoBe ${percentText(snapshot.batteryPercent)}")
+        appendLine("Upd ${timeText(snapshot.updatedAtMillis)} ${snapshot.source}")
+        appendLine("------------------")
+        append("[tap WiFi / hold close]")
+    }
+
+    private fun openWifiSettings() {
+        runCatching {
+            startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+        }.onFailure {
+            runCatching { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+        }
     }
 
     private fun glassesBatteryText(): String {
@@ -203,6 +217,14 @@ class MainActivity : Activity(), HealthDataProvider.Callback, OpenMeteoWeatherPr
     }
 
     private fun valueText(value: Int): String = if (value <= 0) "--" else value.toString()
+
+    private fun compactValueText(value: Int): String {
+        return when {
+            value <= 0 -> "--"
+            value >= 100_000 -> "${value / 1000}k"
+            else -> value.toString()
+        }
+    }
 
     private fun formatSigned(value: Int): String = if (value > 0) "+$value" else value.toString()
 

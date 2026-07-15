@@ -1,6 +1,8 @@
 package com.example.goberokidbridge
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
+import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
@@ -69,9 +71,9 @@ class HealbeAccessibilityService : AccessibilityService() {
 
     private fun String.isCompleteHealbeHome(): Boolean {
         return contains("\u30a8\u30cd\u30eb\u30ae\u30fc\u30d0\u30e9\u30f3\u30b9") &&
-            contains("\u63a5\u7d9a\u6e08\u307f") &&
             contains("GBU_") &&
             contains("kcal") &&
+            contains("\u6b69") &&
             (contains("\u8108\u62cd") || contains("\u6c34\u5206"))
     }
 
@@ -79,6 +81,15 @@ class HealbeAccessibilityService : AccessibilityService() {
         private const val HEALBE_PACKAGE = "com.healbe.healbegobe"
         @Volatile
         private var currentService: HealbeAccessibilityService? = null
+
+        fun isEnabled(context: Context): Boolean {
+            val enabledServices = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            ).orEmpty()
+            val flattened = "${context.packageName}/${HealbeAccessibilityService::class.java.name}"
+            return enabledServices.split(':').any { it.equals(flattened, ignoreCase = true) }
+        }
 
         fun requestActiveRead() {
             currentService?.readActiveHealbeWindow()

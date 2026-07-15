@@ -97,10 +97,15 @@ class MainActivity : Activity() {
         payload.battery?.let { batteryInput.setText(it.toString()) }
         val updatedAt = store.updatedAt()
         val bleStatus = BleBridgeStatus.message(this)
-        statusText.text = if (updatedAt > 0) {
-            "Last: ${payload.encode()}\n${timeText(updatedAt)}\n\n$bleStatus"
+        val captureStatus = if (HealbeAccessibilityService.isEnabled(this)) {
+            "HEALBE screen capture: enabled"
         } else {
-            "No HEALBE values captured yet.\n\n$bleStatus"
+            "HEALBE screen capture: disabled. Open Accessibility Settings and enable GoBe Rokid Bridge."
+        }
+        statusText.text = if (updatedAt > 0) {
+            "Last: ${payload.encode()}\n${timeText(updatedAt)}\n\n$captureStatus\n\n$bleStatus"
+        } else {
+            "No HEALBE values captured yet.\n\n$captureStatus\n\n$bleStatus"
         }
     }
 

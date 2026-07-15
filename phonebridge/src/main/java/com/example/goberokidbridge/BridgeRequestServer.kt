@@ -1,6 +1,7 @@
 package com.example.goberokidbridge
 
 import android.content.Context
+import android.content.Intent
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.SocketException
@@ -31,14 +32,21 @@ object BridgeRequestServer {
                         if (!body.contains("request=latest")) continue
                         val replyPort = parseReplyPort(body)
                         val store = PayloadStore(appContext)
-                        if (store.isStale()) {
+                        val requestedAt = System.currentTimeMillis()
+                        if (HealbeAccessibilityService.isEnabled(appContext)) {
                             HealbeAccessibilityService.requestActiveRead()
-                            DirectGoBeBleBridge.requestFreshPoll(appContext)
-                            waitForFreshPayload(store)
+                        } else {
+                            BleBridgeStatus.update(appContext, "HEALBE screen capture is disabled. Enable GoBe Rokid Bridge in Accessibility settings.")
+                        }
+                        DirectGoBeBleBridge.requestFreshPoll(appContext)
+                        waitForFreshPayload(store, requestedAt, ACTIVE_READ_WAIT_MS)
+                        if (store.updatedAt() < requestedAt && HealbeAccessibilityService.isEnabled(appContext)) {
+                            openHealbeApp(appContext)
+                            waitForFreshPayload(store, requestedAt, HEALBE_OPEN_WAIT_MS)
                         }
                         val payload = store.load()
                         if (payload.hasAnyMetric()) {
-                            val responsePayload = if (store.isStale()) {
+                            val responsePayload = if (store.isStale() || payload.updatedAtMillis < requestedAt) {
                                 payload.copy(source = "STALE_${payload.source}")
                             } else {
                                 payload
@@ -75,12 +83,26 @@ object BridgeRequestServer {
             ?: DEFAULT_REPLY_PORT
     }
 
-    private fun waitForFreshPayload(store: PayloadStore) {
-        val deadline = System.currentTimeMillis() + FRESH_WAIT_MS
-        while (System.currentTimeMillis() < deadline && store.isStale()) {
+    private fun waitForFreshPayload(store: PayloadStore, requestedAt: Long, timeoutMillis: Long) {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (System.currentTimeMillis() < deadline && (store.isStale() || store.updatedAt() < requestedAt)) {
             Thread.sleep(200)
         }
     }
 
-    private const val FRESH_WAIT_MS = 2_500L
+    private fun openHealbeApp(context: Context) {
+        val intent = context.packageManager.getLaunchIntentForPackage(HEALBE_PACKAGE)
+            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            ?: return
+        runCatching {
+            context.startActivity(intent)
+            BleBridgeStatus.update(context, "Opened HEALBE app to refresh screen data.")
+        }.onFailure {
+            BleBridgeStatus.update(context, "Could not open HEALBE app automatically: ${it.localizedMessage}")
+        }
+    }
+
+    private const val ACTIVE_READ_WAIT_MS = 1_000L
+    private const val HEALBE_OPEN_WAIT_MS = 5_000L
+    private const val HEALBE_PACKAGE = "com.healbe.healbegobe"
 }

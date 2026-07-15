@@ -89,6 +89,15 @@ object HealbeTextParser {
     }
 
     private fun findBattery(lines: List<String>): Int? {
+        val gobeIndex = lines.indexOfFirst { it.startsWith("GBU_") }
+        if (gobeIndex >= 0) {
+            for (offset in 1..8) {
+                lines.getOrNull(gobeIndex + offset)
+                    ?.let { Regex("""(\d{1,3})\s*%""").find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() }
+                    ?.takeIf { it in 0..100 }
+                    ?.let { return it }
+            }
+        }
         val connectedIndex = lines.indexOfFirst { it == "\u63a5\u7d9a\u6e08\u307f" || it.equals("connected", ignoreCase = true) }
         if (connectedIndex >= 0) {
             for (offset in 1..5) {
